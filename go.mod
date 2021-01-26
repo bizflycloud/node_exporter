@@ -1,4 +1,4 @@
-module github.com/prometheus/node_exporter
+module github.com/bizflycloud/node_exporter
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
@@ -14,10 +14,12 @@ require (
 	github.com/mattn/go-xmlrpc v0.0.3
 	github.com/mdlayher/genetlink v1.0.0 // indirect
 	github.com/mdlayher/wifi v0.0.0-20200527114002-84f0b9457fdd
+	github.com/mindprince/gonvml v0.0.0-20190828220739-9ebdce4bb989
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.15.0
 	github.com/prometheus/exporter-toolkit v0.5.0
+	github.com/prometheus/node_exporter v1.0.1
 	github.com/prometheus/procfs v0.2.0
 	github.com/shirou/gopsutil v3.20.10+incompatible
 	github.com/siebenmann/go-kstat v0.0.0-20200303194639-4e8294f9e9d5
