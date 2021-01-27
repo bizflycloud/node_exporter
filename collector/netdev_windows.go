@@ -18,7 +18,6 @@ package collector
 import (
 	"encoding/json"
 	"regexp"
-	"strconv"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -34,9 +33,9 @@ func getNetDevStats(ignore *regexp.Regexp, accept *regexp.Regexp, logger log.Log
 	return parseNetDevStats(netInterfaces, ignore, accept, logger)
 }
 
-func parseNetDevStats(ni []net.IOCountersStat, ignore *regexp.Regexp, accept *regexp.Regexp, logger log.Logger) (map[string]map[string]string, error) {
+func parseNetDevStats(ni []net.IOCountersStat, ignore *regexp.Regexp, accept *regexp.Regexp, logger log.Logger) (netDevStats, error) {
 
-	netDev := map[string]map[string]string{}
+	netDev := netDevStats{}
 
 	for _, net := range ni {
 		dev := net.Name
@@ -57,9 +56,8 @@ func parseNetDevStats(ni []net.IOCountersStat, ignore *regexp.Regexp, accept *re
 	return netDev, nil
 }
 
-func parseToString(data net.IOCountersStat) (map[string]string, error) {
+func parseToString(data net.IOCountersStat) (map[string]uint64, error) {
 	statistic := make(map[string]uint64)
-	resultParsed := make(map[string]string)
 
 	statsBytes, err := json.Marshal(data)
 	if err != nil {
@@ -70,8 +68,5 @@ func parseToString(data net.IOCountersStat) (map[string]string, error) {
 	// Ignore field name in statistic map
 	delete(statistic, "name")
 
-	for k, v := range statistic {
-		resultParsed[k] = strconv.FormatUint(v, 10)
-	}
-	return resultParsed, nil
+	return statistic, nil
 }
