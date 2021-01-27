@@ -17,36 +17,32 @@ package collector
 
 import (
 	"encoding/json"
-	"regexp"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/shirou/gopsutil/net"
 )
 
-func getNetDevStats(ignore *regexp.Regexp, accept *regexp.Regexp, logger log.Logger) (map[string]map[string]string, error) {
+func getNetDevStats(filter *netDevFilter, logger log.Logger) (netDevStats, error) {
 	netInterfaces, err := net.IOCounters(true)
 	if err != nil {
 		return nil, err
 	}
 
-	return parseNetDevStats(netInterfaces, ignore, accept, logger)
+	return parseNetDevStats(netInterfaces, filter, logger)
 }
 
-func parseNetDevStats(ni []net.IOCountersStat, ignore *regexp.Regexp, accept *regexp.Regexp, logger log.Logger) (netDevStats, error) {
+func parseNetDevStats(ni []net.IOCountersStat, filter *netDevFilter, logger log.Logger) (netDevStats, error) {
 
 	netDev := netDevStats{}
 
 	for _, net := range ni {
 		dev := net.Name
-		if ignore != nil && ignore.MatchString(dev) {
+		if filter.ignored(dev) {
 			level.Debug(logger).Log("msg", "Ignoring device", "device", dev)
 			continue
 		}
-		if accept != nil && !accept.MatchString(dev) {
-			level.Debug(logger).Log("msg", "Ignoring device", "device", dev)
-			continue
-		}
+
 		statistic, err := parseToString(net)
 		if err != nil {
 			return nil, err
