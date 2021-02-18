@@ -21,11 +21,13 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
+	"github.com/shirou/gopsutil/cpu"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -38,6 +40,7 @@ type cpuCollector struct {
 	cpuGuest           *prometheus.Desc
 	cpuCoreThrottle    *prometheus.Desc
 	cpuPackageThrottle *prometheus.Desc
+	perCPUPercent      *prometheus.Desc
 	logger             log.Logger
 	cpuStats           []procfs.CPUStat
 	cpuStatsMutex      sync.Mutex
@@ -95,6 +98,11 @@ func NewCPUCollector(logger log.Logger) (Collector, error) {
 			"Number of times this CPU package has been throttled.",
 			[]string{"package"}, nil,
 		),
+		perCPUPercent: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, cpuCollectorSubsystem, "percentage"),
+			"Percent calculates the percentage of cpu used either per CPU",
+			[]string{"cpu"}, nil,
+		),
 		logger: logger,
 	}
 	err = c.compileIncludeFlags(flagsInclude, bugsInclude)
@@ -137,6 +145,9 @@ func (c *cpuCollector) Update(ch chan<- prometheus.Metric) error {
 		return err
 	}
 	if err := c.updateThermalThrottle(ch); err != nil {
+		return err
+	}
+	if err := c.updatePercent(ch); err != nil {
 		return err
 	}
 	return nil
@@ -373,4 +384,23 @@ func (c *cpuCollector) updateCPUStats(newStats []procfs.CPUStat) {
 			level.Debug(c.logger).Log("msg", "CPU GuestNice counter jumped backwards", "cpu", i, "old_value", c.cpuStats[i].GuestNice, "new_value", n.GuestNice)
 		}
 	}
+}
+
+// updatePercent do percent calculates the percentage of cpu used either per CPU or combined.
+// If an interval of 0 is given it will compare the current cpu times against the last call.
+// Returns one value per cpu, or a single value if percpu is set to false.
+func (c *cpuCollector) updatePercent(ch chan<- prometheus.Metric) error {
+	percents, err := cpu.Percent(time.Duration(1)*time.Second, true)
+	if err != nil {
+		return err
+	}
+
+	var allCPU float64
+	for cpuID, percent := range percents {
+		ch <- prometheus.MustNewConstMetric(c.perCPUPercent, prometheus.CounterValue, percent, fmt.Sprintf("cpu%v", cpuID))
+		allCPU += percent
+	}
+	ch <- prometheus.MustNewConstMetric(c.perCPUPercent, prometheus.CounterValue, allCPU/float64(len(percents)), "cpu")
+
+	return nil
 }
