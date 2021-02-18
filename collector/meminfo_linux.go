@@ -23,6 +23,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/shirou/gopsutil/mem"
 )
 
 var (
@@ -54,7 +56,7 @@ func parseMemInfo(r io.Reader) (map[string]float64, error) {
 		}
 		fv, err := strconv.ParseFloat(parts[1], 64)
 		if err != nil {
-			return nil, fmt.Errorf("invalid value in meminfo: %w", err)
+			return nil, fmt.Errorf("invalid value in meminfo: %s", err)
 		}
 		key := parts[0][:len(parts[0])-1] // remove trailing : from key
 		// Active(anon) -> Active_anon
@@ -69,6 +71,13 @@ func parseMemInfo(r io.Reader) (map[string]float64, error) {
 		}
 		memInfo[key] = fv
 	}
+
+	virtualStats, err := mem.VirtualMemory()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get meminfo: %s", err)
+	}
+
+	memInfo["Used_percent"] = virtualStats.UsedPercent
 
 	return memInfo, scanner.Err()
 }
