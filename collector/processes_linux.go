@@ -34,7 +34,7 @@ const (
 
 var (
 	// Remake labels
-	r = strings.NewReplacer(".exe", "", "-", "_", ".", "_")
+	r = strings.NewReplacer(".exe", "", "(", "", ")", "", ".", "_", "-", "_", ":", "")
 )
 
 type processCollector struct {
@@ -90,7 +90,12 @@ func NewProcessStatCollector(logger log.Logger) (Collector, error) {
 		logger: logger,
 	}, nil
 }
+
 func (c *processCollector) Update(ch chan<- prometheus.Metric) error {
+	// handle error is not required
+	// We need update process
+	c.procfs, _ = process.Processes()
+
 	pids, states, threads, err := c.getAllocatedThreads()
 	if err != nil {
 		return fmt.Errorf("unable to retrieve number of allocated threads: %q", err)
@@ -119,7 +124,6 @@ func (c *processCollector) Update(ch chan<- prometheus.Metric) error {
 	if err != nil {
 		return fmt.Errorf("unable to retrieve number of allocated processes: %q", err)
 	}
-
 	for procName, procInfo := range procStats {
 		// Update memory information
 		for k, v := range procInfo["mem"] {
@@ -189,17 +193,20 @@ func (c *processCollector) getAllocatedProcesses() (map[string]map[string]map[st
 			continue
 		}
 
-		// Ignore process can't get name
-		pName, err := process.Name()
+		var kName string
+		pName, err := process.CmdlineSlice()
 		if err != nil {
 			continue
 		}
 
-		// remove post.fix .exe before save to map
-		// get memory info that process using
-		kName := r.Replace(pName)
+		// Ignore process can't get name
+		if len(pName) > 0 {
+			pName = strings.Split(strings.Split(pName[0], " ")[0], "/")
+			kName = r.Replace(pName[cap(pName)-1])
+		} else {
+			continue
+		}
 
-		// Make a map store data
 		memInfo, err := getMemoryInfo(process)
 		if err != nil {
 			continue
